@@ -74,6 +74,11 @@ jobs:
       image: maven:3.9.8-eclipse-temurin-11-alpine
       options: --cap-add=NET_ADMIN
     steps:
+    - name: Install CA certificates
+      run: |
+        apk update
+        apk add ca-certificates
+        update-ca-certificates
     - name: Checkout the code
       uses: actions/checkout@v3
     - name: Echo SCAN_ID
