@@ -33,17 +33,17 @@ jobs:
   ecr_details:
     runs-on: ubuntu-latest
     outputs:
-      ecr_username: ${{ steps.ecr_details.outputs.username }}
-      ecr_token: ${{ steps.ecr_details.outputs.token }}
-      ecr_region: ${{ steps.ecr_details.outputs.region }}
-      ecr_id: ${{ steps.ecr_details.outputs.registry_id }}
+      ecr_username: ${{steps.ecr_details.outputs.username}}
+      ecr_token: ${{steps.ecr_details.outputs.token}}
+      ecr_region: ${{steps.ecr_details.outputs.region}}
+      ecr_id: ${{steps.ecr_details.outputs.registry_id}}
     steps:
       - name: Fetching VB Token
         id: fetchECRDetails
         uses: fjogeleit/http-request-action@v1.15.1
         with:
-          url: '${{env.API_URL}}/utilityapi/v1/registry?api_key=${{secrets.VB_API_KEY}}'
-          method: 'GET'
+            url: '${{env.API_URL}}/utilityapi/v1/registry?api_key=${{secrets.VB_API_KEY}}'
+            method: 'GET'
       - name: Decoding VB Token
         id: parseToken
         run: echo "DECODED_TOKEN=$(echo ${{ fromJson(steps.fetchECRDetails.outputs.response).data }} | base64 -d)" >> "$GITHUB_OUTPUT"
@@ -62,8 +62,8 @@ jobs:
       pse:
         image: 282904853176.dkr.ecr.us-west-2.amazonaws.com/invisirisk/pse-proxy:dev-test
         credentials:
-          username: ${{ needs.ecr_details.outputs.ecr_username }}
-          password: ${{ needs.ecr_details.outputs.ecr_token }}
+          username: ${{needs.ecr_details.outputs.ecr_username}}
+          password: ${{needs.ecr_details.outputs.ecr_token}}
         env:
           PSE_DEBUG_FLAG: --alsologtostderr
           POLICY_LOG: t
@@ -76,15 +76,14 @@ jobs:
     steps:
     - name: Install CA certificates
       run: |
-        apk update
-        apk add ca-certificates
-        update-ca-certificates
+        sudo apt-get update
+        sudo apt-get install -y ca-certificates
     - name: Checkout the code
       uses: actions/checkout@v3
     - name: Echo SCAN_ID
-      run: echo "SCAN_ID=${{ needs.create_scan_in_IR_Portal.outputs.scan_id }}"
+      run: echo "SCAN_ID=${{needs.create_scan_in_IR_Portal.outputs.scan_id}}"
     - uses: invisirisk/pse-action@v1.0.7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        SCAN_ID: ${{ needs.create_scan_in_IR_Portal.outputs.scan_id }}
+        SCAN_ID: ${{needs.create_scan_in_IR_Portal.outputs.scan_id}}
     - run: mvn install -B  # Use -B for batch mode to prevent interactive prompts
