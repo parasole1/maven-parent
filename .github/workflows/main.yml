@@ -4,14 +4,12 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-
 permissions:
   checks: write
   contents: read
   packages: read
 env:
   API_URL: https://app.stage.veribom.com
-
 jobs:
   create_scan_in_IR_Portal:
     runs-on: ubuntu-latest
@@ -28,6 +26,7 @@ jobs:
       - name: Parse Response
         id: parseResponse
         run: echo "scan_id=${{fromJSON(steps.createScan.outputs.response).data.scan_id}}" >> "$GITHUB_OUTPUT"
+  
   ecr_details:
     runs-on: ubuntu-latest
     outputs:
@@ -68,17 +67,55 @@ jobs:
           INVISIRISK_JWT_TOKEN: ${{secrets.VB_API_KEY}} 
           INVISIRISK_PORTAL:  https://app.stage.veribom.com
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
-    container:
-      image: maven:3.9.8-eclipse-temurin-11-alpine
-      options: --cap-add=NET_ADMIN
+    
     steps:
-    - env: 
-        SCAN_ID: ${{ needs.create_scan_in_IR_Portal.outputs.scan_id }}
-      run: echo $SCAN_ID
-    - uses: invisirisk/pse-action@v1.0.7
+    - name: Set up JDK and Maven
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Configure Maven Settings
+      run: |
+        mkdir -p ~/.m2
+        cat > ~/.m2/settings.xml << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+                                      https://maven.apache.org/xds/settings-1.0.0.xsd">
+          <mirrors>
+            <mirror>
+              <id>central</id>
+              <name>Central Repository</name>
+              <url>https://repo.maven.apache.org/maven2</url>
+              <mirrorOf>*</mirrorOf>
+            </mirror>
+          </mirrors>
+        </settings>
+        EOF
+
+    - name: Checkout the code
+      uses: actions/checkout@v3
+
+    - name: Set up environment variables
+      run: echo ${{ needs.create_scan_in_IR_Portal.outputs.scan_id }}
+
+    - name: Run PSE Action
+      uses: invisirisk/pse-action@v1.0.7
       with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           SCAN_ID: ${{ needs.create_scan_in_IR_Portal.outputs.scan_id }}
-    - name: Checkout the code
-      uses: actions/checkout@v3
-    - run: mvn install
+
+    - name: Build with Maven
+      run: |
+        mvn clean install \
+          -Dmaven.wagon.http.ssl.insecure=true \
+          -Dmaven.wagon.http.ssl.allowall=true \
+          -Dmaven.repo.local=${{ github.workspace }}/.m2/repository
+      env:
+        MAVEN_OPTS: >-
+          -Dhttps.protocols=TLSv1.2 
+          -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN
+          -Djava.awt.headless=true
